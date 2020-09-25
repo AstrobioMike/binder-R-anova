@@ -6,3 +6,4 @@ dependencies:
   - r-ggpubr
   - r-rstatix
   - r-datarium
+  - r-emmeans
