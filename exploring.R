@@ -288,8 +288,164 @@ shapiro_test(residuals(no_outliers_Water_model))
   # still doesn't pass normality test, so can't try standard anova on it
 
 
-## Testing for interactions (following along with the Two-way anova section: https://www.datanovia.com/en/lessons/anova-in-r/#two-way-independent-anova)
-# based on how this is noted there, "If an interaction effect does not exist, main effects could be reported.", so i'm thinking of this as for us to, for example, look at the Tank and Plant factors together, since they both correlate (Tanks 1 and 7 were highest growth and both had peas)
 
-  ## i'm not sure we can do any two-way or more because i don't think any individual groupings encompass all other factor types, and i think that's needed
+## Testing for interactions (following along with the Two-way anova section: https://www.datanovia.com/en/lessons/anova-in-r/#two-way-independent-anova)
+  # i don't think we can include Tank, because each tank doesn't have combinations of all factors, which i also think means we can't "Block" the Tank factor out of the comparison. I read about "Blocking" from this page: https://stat.ethz.ch/~meier/teaching/anova/block-designs.html
+  # i also read about "blocking" on this page: https://online.stat.psu.edu/stat503/book/export/html/646 that says we can try analysis of covariance when it's not possible for us to block, so we could maybe try that (https://www.datanovia.com/en/lessons/ancova-in-r/), but i didn't have any luck yet and didn't get to spend too much time with it. i'm not sure what's up with that yet
+    # we also need to keep in mind that although the Tanks show a large difference, it tracks with the Plant type (peas), so maybe some tests can be done on just basil and tomatoes (which would eliminate the large Tank/Peas effect), or the AvgGrowth can maybe somehow be normalized based on total size or total change or something
+
+
+  # anyway, to start, i think we can look at InoGrav and Lighting
+tab %>% group_by(InoGrav, Lighting) %>% summarize(n=n())
+#   InoGrav   Lighting       n
+#   <fct>     <fct>      <int>
+# 1 Gravel    Artificial    20
+# 2 Gravel    Natural       23
+# 3 Inoculant Artificial    35
+# 4 Inoculant Natural       33
+
+  # InoGrav and Plant
+tab %>% group_by(InoGrav, Plant) %>% summarize(n=n())
+#   InoGrav   Plant        n
+#   <fct>     <fct>    <int>
+# 1 Gravel    Basil       23
+# 2 Gravel    Peas         9
+# 3 Gravel    Tomatoes    11
+# 4 Inoculant Basil       12
+# 5 Inoculant Peas        22
+# 6 Inoculant Tomatoes    34
+
+  # InoGrav and Media
+tab %>% group_by(InoGrav, Media) %>% summarize(n=n())
+
+#   InoGrav   Media       n
+#   <fct>     <fct>   <int>
+# 1 Gravel    Coconut    23
+# 2 Gravel    Float      20
+# 3 Inoculant Clay       45
+# 4 Inoculant Float      23
+
+  # InoGrav and Water
+tab %>% group_by(InoGrav, Water) %>% summarize(n=n())
+#   InoGrav   Water     n
+#   <fct>     <fct> <int>
+# 1 Gravel    Pumps    11
+# 2 Gravel    Wicks    32
+# 3 Inoculant Pumps    45
+# 4 Inoculant Wicks    23
+
+  # Lighting and Plant
+tab %>% group_by(Lighting, Plant) %>% summarize(n=n())
+#   Lighting   Plant        n
+#   <fct>      <fct>    <int>
+# 1 Artificial Basil       12
+# 2 Artificial Peas        20
+# 3 Artificial Tomatoes    23
+# 4 Natural    Basil       23
+# 5 Natural    Peas        11
+# 6 Natural    Tomatoes    22
+
+  # Lighting and Media
+tab %>% group_by(Lighting, Media) %>% summarize(n=n())
+#   Lighting   Media       n
+#   <fct>      <fct>   <int>
+# 1 Artificial Clay       23
+# 2 Artificial Coconut    11
+# 3 Artificial Float      21
+# 4 Natural    Clay       22
+# 5 Natural    Coconut    12
+# 6 Natural    Float      22
+
+  # Lighting and Water
+tab %>% group_by(Lighting, Water) %>% summarize(n=n())
+#   Lighting   Water     n
+#   <fct>      <fct> <int>
+# 1 Artificial Pumps    23
+# 2 Artificial Wicks    32
+# 3 Natural    Pumps    33
+# 4 Natural    Wicks    23
+
+  # Plant and Media is missing a Coconut for Peas (those could probably be split apart if wanted, meaning getting read of Peas to look at the 3 media in basil and tomatoes, and/or getting rid of coconut to look at clay and float across all 3 plants)
+tab %>% group_by(Plant, Media) %>% summarize(n=n())
+#   Plant    Media       n
+#   <fct>    <fct>   <int>
+# 1 Basil    Clay       12
+# 2 Basil    Coconut    12
+# 3 Basil    Float      11
+# 4 Peas     Clay       22
+# 5 Peas     Float       9
+# 6 Tomatoes Clay       11
+# 7 Tomatoes Coconut    11
+# 8 Tomatoes Float      23
+
+  # Plant and Water
+tab %>% group_by(Plant, Water) %>% summarize(n=n())
+#   Plant    Water     n
+#   <fct>    <fct> <int>
+# 1 Basil    Pumps    23
+# 2 Basil    Wicks    12
+# 3 Peas     Pumps    22
+# 4 Peas     Wicks     9
+# 5 Tomatoes Pumps    11
+# 6 Tomatoes Wicks    34
+
+  # Media and Water, i don't think can be done together because Pumps is missing a coconut
+tab %>% group_by(Media, Water) %>% summarize(n=n())
+
+
+### starting with InoGrav and Lighting ###
+tab %>% group_by(InoGrav, Lighting) %>% summarize(n=n())
+  # taking a look
+tab %>% group_by(InoGrav, Lighting) %>% get_summary_stats(AvgGrowth, type = "mean_sd")
+ggboxplot(tab, x = "InoGrav", y = "AvgGrowth", color = "Lighting")
+  # checking for outliers
+tab %>% group_by(InoGrav, Lighting) %>% identify_outliers(AvgGrowth)
+    # quite a few, but all Tank related, so i don't think we should necessarily remove them...
+
+  # normality test
+InoGrav_Lighting_model <- lm(AvgGrowth ~ InoGrav * Lighting, data = tab)
+ggqqplot(residuals(InoGrav_Lighting_model))
+shapiro_test(residuals(InoGrav_Lighting_model))
+    # yea yea, looking by groups
+tab %>% group_by(InoGrav, Lighting) %>% shapiro_test(AvgGrowth)
+    # still no good, but when we include Tanks as a group it mostly is ok
+tab %>% group_by(InoGrav, Lighting, Tank) %>% shapiro_test(AvgGrowth)
+    # i'm just not sure how to incorporate that in the anova, anytime its included, all other factors are NA (because they are represented across different tanks)
+
+
+  # after some more poking, i found this "robust anova" program (https://rdrr.io/cran/walrus/man/ranova.html), that i think we can use without worrying about the assumptions as much
+ # can be installed in the web-based R environment like so:
+
+install.packages("walrus")
+library(walrus)
+ranova(tab, "AvgGrowth", c("InoGrav"), ph=TRUE) # 0.73
+ranova(tab, "AvgGrowth", c("Lighting"), ph=TRUE) # 0.16
+ranova(tab, "AvgGrowth", c("Plant"), ph=TRUE) # 0.0003 (each different)
+ranova(tab, "AvgGrowth", c("Media"), ph=TRUE) # 0.44
+ranova(tab, "AvgGrowth", c("Water"), ph=TRUE) # 0.33
+
+ranova(tab, "AvgGrowth", c("InoGrav", "Lighting"), ph=TRUE) # interaction 0.06
+ranova(tab, "AvgGrowth", c("InoGrav", "Plant"), ph=TRUE) # interaction 0.25
+ranova(tab, "AvgGrowth", c("InoGrav", "Media"), ph=TRUE) # not possible due to missing combinations
+ranova(tab, "AvgGrowth", c("InoGrav", "Water"), ph=TRUE) # interaction 0.13
+
+ranova(tab, "AvgGrowth", c("Lighting", "Plant"), ph=TRUE) # interaction 0.10
+ranova(tab, "AvgGrowth", c("Lighting", "Media"), ph=TRUE) # interaction 0.22
+ranova(tab, "AvgGrowth", c("Lighting", "Water"), ph=TRUE) # interaction 0.93
+
+ranova(tab, "AvgGrowth", c("Plant", "Media"), ph=TRUE) # not possible
+ranova(tab, "AvgGrowth", c("Plant", "Water"), ph=TRUE) # 0.34
+
+ranova(tab, "AvgGrowth", c("Media", "Water"), ph=TRUE) # not possible
+
+  # i would just rely on those results (as i don't know better if or how we can "correct"/take-account of the Tank thing that makes it hard to look across the other treatments as you noted)
+  ## and/or i would try running some things on each plant individually, that will help get rid of the overlapping problem between Tanks and Plants
+  # e.g. making tables of each plant
+basil_tab <- tab %>% filter(Plant == "Basil")
+peas_tab <- tab %>% filter(Plant == "Peas")
+tomatoes_tab <- tab %>% filter(Plant == "Tomatoes")
+
+  # and then i'd try some of what we did at the top, but working on one plant at a time and seeing if things are cleaner that way
+
+
 
