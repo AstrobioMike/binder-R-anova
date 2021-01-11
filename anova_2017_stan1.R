@@ -184,5 +184,119 @@ ggboxplot(tab, x = "Water", y = "StanGrowth")
 
 
 
+#####################################################
+################# MIKE 11-JAN-2021 ##################
+#####################################################
+# looking for the general standardization thing I was semi-remembering brought me to this wiki page: https://en.wikipedia.org/wiki/Standard_score
+# then looking for the R way to do it led me to the built-in scale() function: https://www.r-bloggers.com/2020/02/how-to-compute-the-z-score-with-r/
+
+## making a little test dataframe to make sure the scale() function is doing what I think it's doing
+test <- data.frame(group = c("A","A","A","B","B","B"), value = c(5,10,15,50,100,150))
+test
+#     group value
+#     A     5
+#     A     10
+#     A     15
+#     B     50
+#     B     100
+#     B     150
+
+  # after standardizing, these two groups should have equal values
+test_with_standardized_values <- test %>% group_by(group) %>% mutate(z_stn_value = scale(value)) %>% data.frame()
+test_with_standardized_values
+#     group value       z_stn_value
+#     A     5          -1
+#     A     10          0
+#     A     15          1
+#     B     50         -1
+#     B     100         0
+#     B     150         1
+
+  # great! love it when things work out as expected, ha
+
+# now adding an additional column to our table and running through the Tank analysis with your code from above 
+library(tidyverse)
+library(ggpubr)
+library(car)
+library(rstatix)
+tab <- read.csv(file = 'Plant-Growth-2017-Standardized.csv')
+tab <- tab %>% group_by(Plant) %>% mutate(z_stn_growth = as.vector(scale(AvgGrowth))) %>% data.frame() # needed to add the as.vector part for it to enter the df in the proper format
+str(tab)
+
+tab %>% group_by(Tank.) %>% get_summary_stats(StanGrowth, type = "mean_sd")
+tab %>% group_by(Tank.) %>% get_summary_stats(z_stn_growth, type = "mean_sd")
+
+ggboxplot(tab, x = "Tank.", y = "StanGrowth")
+ggboxplot(tab, x = "Tank.", y = "z_stn_growth")
+
+  # outliers <should> look the same i think, since the are based on the values distributions, which relatively should be the same...
+tab %>% group_by(Tank.) %>% identify_outliers(StanGrowth)
+#there is one extreme outlier in tank 9, i'll ignore it for now
+tab %>% group_by(Tank.) %>% identify_outliers(z_stn_growth)
+    # good
 
 
+
+## Tanks ##
+### StanGrowth ###
+tank._model <- lm(StanGrowth ~ Tank., data = tab)
+ggqqplot(residuals(tank._model))
+shapiro_test(residuals(tank._model))  
+ggqqplot(tab, "StanGrowth", facet.by = "Tank.")
+tab %>% group_by(Tank.) %>% shapiro_test(StanGrowth) #all normal except for tank 9. I'll do both anova and kruskal wallis
+plot(tank._model, 1)
+tab %>% levene_test(StanGrowth ~ Tank.) #okay assumption not met, so welch
+
+welch_tank._anova_result <- tab %>% welch_anova_test(StanGrowth ~ Tank.) 
+kruskal_wallis_tank._anova_result <- tab %>% kruskal_test(StanGrowth ~ Tank.)
+#basically said that the tanks themselves have significant variance, probably because of tanks 5 and 7
+tank._pwc <- tab %>% tukey_hsd(StanGrowth ~ Tank.)
+tank._pwc %>% filter(p.adj <= 0.10)
+# yeah so basically tanks 5 and 7 are going a bit crazy
+
+### z-standardized ###
+tank.z_model <- lm(z_stn_growth ~ Tank., data = tab)
+ggqqplot(residuals(tank.z_model)) # looks a little cleaner
+shapiro_test(residuals(tank.z_model)) # still not in the clear, though p-value is now 0.014 vs 0.00000135
+ggqqplot(tab, "z_stn_growth", facet.by = "Tank.")
+tab %>% group_by(Tank.) %>% shapiro_test(z_stn_growth) # same
+plot(tank.z_model, 1) # looks cleaner i think
+tab %>% levene_test(z_stn_growth ~ Tank.) # p value of 0.268, so we're working with homogenous variance according to this test now
+
+kruskal_wallis_tank.z_anova_result <- tab %>% kruskal_test(z_stn_growth ~ Tank.) # 0.341, no longer sig by tank
+  # looking at tukey anyway
+tank.z_pwc <- tab %>% tukey_hsd(z_stn_growth ~ Tank.)
+tank.z_pwc %>% filter(p.adj <= 0.10) # none 
+
+
+
+#Tanks no Outliers
+### StanGrowth ###
+tab_no_tank._outliers <- tab %>% group_by(Tank.) %>% filter(!(AvgGrowth > ((3 * IQR(AvgGrowth)) + quantile(AvgGrowth, probs = 0.75))) | (AvgGrowth < ((3 * IQR(AvgGrowth)) - quantile(AvgGrowth, probs = 0.25)))) %>% data.frame()
+no_outliers_tank._model <- lm(StanGrowth ~ Tank., data = tab_no_tank._outliers)
+ggqqplot(residuals(no_outliers_tank._model))
+shapiro_test(residuals(no_outliers_tank._model)) #still not normal..
+plot(no_outliers_tank._model, 1)
+no_outliers_tank._model %>% levene_test(AvgGrowth ~ Tank.) #nope
+kruskal_wallis_tank._no_outliers_anova_result <- tab_no_tank._outliers %>% kruskal_test(StanGrowth ~ Tank.) #significant
+welch_tank._no_outlier_anova_result <- tab_no_tank._outliers %>% welch_anova_test(AvgGrowth ~ Tank.) #significant
+
+### z-standardized ###
+tab_no_tank.z_outliers <- tab %>% group_by(Tank.) %>% filter(!(z_stn_growth > ((3 * IQR(z_stn_growth)) + quantile(z_stn_growth, probs = 0.75))) | (z_stn_growth < ((3 * IQR(z_stn_growth)) - quantile(z_stn_growth, probs = 0.25)))) %>% data.frame()
+no_outliers_tank.z_model <- lm(z_stn_growth ~ Tank., data = tab_no_tank.z_outliers)
+ggqqplot(residuals(no_outliers_tank.z_model)) # cleaner again
+shapiro_test(residuals(no_outliers_tank.z_model)) # 0.223, considered normal now
+plot(no_outliers_tank.z_model, 1)
+no_outliers_tank.z_model %>% levene_test(z_stn_growth ~ Tank.) # 0.171, considered homogenous
+  # finishing comparison of these, then will run regular anova
+kruskal_wallis_tank.z_no_outliers_anova_result <- tab_no_tank.z_outliers %>% kruskal_test(z_stn_growth ~ Tank.) # 0.31
+welch_tank.z_no_outlier_anova_result <- tab_no_tank.z_outliers %>% welch_anova_test(z_stn_growth ~ Tank.) # 0.096
+
+tank_z_no_outlier_anova_result <- tab_no_tank.z_outliers %>% anova_test(z_stn_growth ~ Tank.) # 0.35
+  # so with z-standardization (which i think is the way to go), there are no sig differences between tanks
+
+### I'd say use the z-standardization values, and run through what you did above for the LAST time :)
+
+#####################################################
+#####################################################
+#####################################################
