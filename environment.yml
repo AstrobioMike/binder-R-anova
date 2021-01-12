@@ -7,3 +7,4 @@ dependencies:
   - r-rstatix
   - r-datarium
   - r-emmeans
+  - r-walrus
