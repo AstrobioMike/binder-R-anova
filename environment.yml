@@ -11,3 +11,8 @@ dependencies:
   - r-emmeans
   - bioconductor-phyloseq
   - bioconductor-deseq2
+  - r-vegan
+  - r-dendextend
+  - r-viridis
+  - r-reshape
+  - bioconductor-decontam
