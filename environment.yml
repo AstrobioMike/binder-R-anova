@@ -16,3 +16,4 @@ dependencies:
   - r-viridis
   - r-reshape
   - bioconductor-decontam
+  - r-dendsort
