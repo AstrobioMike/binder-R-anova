@@ -1,3 +1,7 @@
+# couldn't figure out how to install these permanently, so just doing here, only take a couple minutes
+devtools::install_github("adw96/breakaway")
+devtools::install_github("adw96/DivNet")
+
 library(phyloseq)
 library(DivNet)
 library(tidyverse)
