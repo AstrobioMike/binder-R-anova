@@ -5,11 +5,11 @@ theme_set(theme_bw())
 growth_tab <- read.table("data/all-plant-average-heights.tsv", sep = "\t", header = TRUE, na.strings="")
 growth_for_plotting <- growth_tab %>% pivot_longer(!Days, names_to = "Plant", values_to = "Height (cm)")
 
-# together (probably fine together)
+# split
 ggplot(growth_for_plotting, aes(x = Days, y = `Height (cm)`, color = Plant, group = Plant)) + geom_point() + geom_smooth(aes(fill = Plant), alpha = 0.1) +
     facet_wrap(~Plant, nrow=3, ncol=1, scales = "free_y") + theme(legend.position = "none") + ggtitle("Height over time")
 
-# split
+# together (probably fine together)
 ggplot(growth_for_plotting, aes(x = Days, y = `Height (cm)`, color = Plant, group = Plant)) + geom_point() + geom_smooth(aes(fill = Plant), alpha = 0.1) +
     theme(legend.position = "bottom") + ggtitle("Height over time")
 
